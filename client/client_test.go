@@ -7924,7 +7924,6 @@ func testMoveParentDir(t *testing.T, sb integration.Sandbox) {
 			} else {
 				ok = false
 			}
-
 		}
 		require.True(t, ok)
 	case "busybox:latest":
