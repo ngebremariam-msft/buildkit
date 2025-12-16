@@ -1781,15 +1781,10 @@ func testSecretMounts(t *testing.T, sb integration.Sandbox) {
 }
 
 func testSecretEnv(t *testing.T, sb integration.Sandbox) {
-	//integration.SkipOnPlatform(t, "windows")
-	fmt.Printf("Testing Secret Env\n")
 	c, err := New(sb.Context(), sb.Address())
 	require.NoError(t, err)
 	defer c.Close()
 
-	//Run(llb.Shlex(`sh -c '[ "$(echo ${MY_SECRET})" = 'foo-secret' ]'`), llb.AddSecret("MY_SECRET", llb.SecretAsEnv(true)))
-
-	//nanoserver:latest
 	st := llb.Image("nanoserver:latest").
 		Run(llb.Shlex(`cmd /C "set MY_SECRET=foo-secret && echo %MY_SECRET%"`), llb.AddSecret("MY_SECRET", llb.SecretAsEnv(true)))
 
@@ -1801,47 +1796,33 @@ func testSecretEnv(t *testing.T, sb integration.Sandbox) {
 			"MY_SECRET": []byte("foo-secret"),
 		})},
 	}, nil)
-	fmt.Printf("1) Full Error: %v\n", err)
 	require.NoError(t, err)
 
 	// test optional
-	//Run(llb.Shlex(`sh -c '[ -z "${MY_SECRET}" ]'`), llb.AddSecret("MY_SECRET", llb.SecretAsEnv(true), llb.SecretOptional))
 	st = llb.Image("nanoserver:latest").
 		Run(llb.Shlex(`cmd /C "if not defined MY_SECRET (echo 1) else (echo 0)"`), llb.AddSecret("MY_SECRET", llb.SecretAsEnv(true), llb.SecretOptional))
 
 	def, err = st.Marshal(sb.Context())
-	fmt.Printf("2) Full Error: %v\n", err)
 	require.NoError(t, err)
 
 	_, err = c.Solve(sb.Context(), def, SolveOpt{
 		Session: []session.Attachable{secretsprovider.FromMap(map[string][]byte{})},
 	}, nil)
-	fmt.Printf("3) Full Error: %v\n", err)
 	require.NoError(t, err)
 
 	_, err = c.Solve(sb.Context(), def, SolveOpt{}, nil)
-	fmt.Printf("4) Full Error: %v\n", err)
 	require.NoError(t, err)
 
 	st = llb.Image("nanoserver:latest").
 		Run(llb.Shlex(`cmd /C "echo foo"`), llb.AddSecret("MY_SECRET", llb.SecretAsEnv(true)))
 
 	def, err = st.Marshal(sb.Context())
-	fmt.Printf("5) Full Error: %v\n", err)
 	require.NoError(t, err)
 
 	_, err = c.Solve(sb.Context(), def, SolveOpt{
 		Session: []session.Attachable{secretsprovider.FromMap(map[string][]byte{})},
 	}, nil)
-	fmt.Printf("6) Full Error: %v\n", err)
 	require.Error(t, err)
-
-	// test id
-	// st = llb.Image("busybox:latest").
-	// 	Run(llb.Shlex(`sh -c '[ "$(echo ${MYPASSWORD}-${MYTOKEN})" = "pw-token" ]' `),
-	// 		llb.AddSecret("MYPASSWORD", llb.SecretID("pass"), llb.SecretAsEnv(true)),
-	// 		llb.AddSecret("MYTOKEN", llb.SecretAsEnv(true)),
-	// 	)
 
 	st = llb.Image("nanoserver:latest").
 		Run(llb.Shlex(`cmd /C "if defined MYPASSWORD (echo 1) else (echo 0) && if defined MYTOKEN (echo 1) else (echo 0)`),
@@ -1850,7 +1831,6 @@ func testSecretEnv(t *testing.T, sb integration.Sandbox) {
 		)
 
 	def, err = st.Marshal(sb.Context())
-	fmt.Printf("7) Full Error: %v\n", err)
 	require.NoError(t, err)
 
 	_, err = c.Solve(sb.Context(), def, SolveOpt{
@@ -1859,10 +1839,7 @@ func testSecretEnv(t *testing.T, sb integration.Sandbox) {
 			"MYTOKEN": []byte("token"),
 		})},
 	}, nil)
-	fmt.Printf("FINAL) Full Error: %v\n", err)
 	require.NoError(t, err)
-
-	fmt.Printf("Test Secret Env Done\n")
 }
 
 func testTmpfsMounts(t *testing.T, sb integration.Sandbox) {
