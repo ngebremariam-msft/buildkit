@@ -1348,8 +1348,9 @@ ENV FOO=bar
 }
 
 // https://github.com/moby/buildkit/issues/3562
-func testDuplicatePlatformProvenance(t *testing.T, sb integration.Sandbox) {
-	integration.SkipOnPlatform(t, "windows")
+func testDuplicatePlatformProvenance(t *testing.T, sb integration.Sandbox) { //PASSING
+	//integration.SkipOnPlatform(t, "windows")
+	fmt.Printf("Running testDuplicatePlatformProvenance\n")
 	workers.CheckFeatureCompat(t, sb, workers.FeatureProvenance)
 	ctx := sb.Context()
 
@@ -1373,14 +1374,16 @@ FROM base-$TARGETOS
 	_, err = f.Solve(sb.Context(), c, client.SolveOpt{
 		FrontendAttrs: map[string]string{
 			"attest:provenance": "mode=max",
-			"platform":          "linux/amd64,linux/amd64",
+			"platform":          "linux/amd64,windows/amd64",
 		},
 		LocalMounts: map[string]fsutil.FS{
 			dockerui.DefaultLocalNameDockerfile: dir,
 			dockerui.DefaultLocalNameContext:    dir,
 		},
 	}, nil)
+	fmt.Printf("Full Error: %v\n", err)
 	require.NoError(t, err)
+	fmt.Printf("Completed testDuplicatePlatformProvenance\n")
 }
 
 // https://github.com/moby/buildkit/issues/3928
