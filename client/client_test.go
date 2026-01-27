@@ -1725,6 +1725,7 @@ func testSecretMounts(t *testing.T, sb integration.Sandbox) {
 
 	// For now, this test is Linux-only until BuildKit properly implements Windows secret mounts
 	// without tmpfs. Use testSecretEnv for Windows-compatible environment-based secrets.
+	integration.SkipOnPlatform(t, "windows", "Windows does not support tmpfs for secret mounts")
 	c, err := New(sb.Context(), sb.Address())
 	require.NoError(t, err)
 	defer c.Close()
