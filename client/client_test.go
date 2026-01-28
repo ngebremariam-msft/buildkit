@@ -1892,9 +1892,7 @@ func testSecretEnv(t *testing.T, sb integration.Sandbox) {
 			"MYTOKEN": []byte("token"),
 		})},
 	}, nil)
-	fmt.Printf("Full Error: %v\n", err)
 	require.NoError(t, err)
-	fmt.Print("Completed Successfully\n")
 }
 
 func testTmpfsMounts(t *testing.T, sb integration.Sandbox) {
