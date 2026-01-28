@@ -89,6 +89,8 @@ jobs:
         name: Build
         uses: docker/bake-action@v6
         with:
+          files: |
+            ./docker-bake.hcl
           targets: integration-tests-base
           set: |
             *.cache-from=type=gha,scope=${{ inputs.cache_scope }}
@@ -155,6 +157,8 @@ jobs:
         name: Build test image
         uses: docker/bake-action@v6
         with:
+          files: |
+            ./docker-bake.hcl
           targets: integration-tests
           set: |
             *.cache-from=type=gha,scope=${{ inputs.cache_scope }}

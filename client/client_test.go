@@ -1808,11 +1808,11 @@ func testSecretEnv(t *testing.T, sb integration.Sandbox) {
 	imgName := integration.UnixOrWindows("busybox:latest", "nanoserver:latest")
 	var st llb.ExecState
 
+	// Test 1: Verify secret value is accessible as environment variable
 	switch imgName {
 	case "nanoserver:latest":
 		st = llb.Image(imgName).
-			Run(llb.Shlex(`cmd /C "set MY_SECRET=foo-secret && echo %MY_SECRET%"`), llb.AddSecret("MY_SECRET", llb.SecretAsEnv(true)))
-
+			Run(llb.Shlex(`cmd /C "if "%MY_SECRET%"=="foo-secret" (exit 0) else (exit 1)"`), llb.AddSecret("MY_SECRET", llb.SecretAsEnv(true)))
 	case "busybox:latest":
 		st = llb.Image(imgName).
 			Run(llb.Shlex(`sh -c '[ "$(echo ${MY_SECRET})" = 'foo-secret' ]'`), llb.AddSecret("MY_SECRET", llb.SecretAsEnv(true)))
@@ -1828,11 +1828,11 @@ func testSecretEnv(t *testing.T, sb integration.Sandbox) {
 	}, nil)
 	require.NoError(t, err)
 
-	// test optional
+	// Test 2: Optional secret not provided should be unset/empty
 	switch imgName {
 	case "nanoserver:latest":
 		st = llb.Image(imgName).
-			Run(llb.Shlex(`cmd /C "if not defined MY_SECRET (echo 1) else (echo 0)"`), llb.AddSecret("MY_SECRET", llb.SecretAsEnv(true), llb.SecretOptional))
+			Run(llb.Shlex(`cmd /C "if not defined MY_SECRET (exit 0) else (exit 1)"`), llb.AddSecret("MY_SECRET", llb.SecretAsEnv(true), llb.SecretOptional))
 	case "busybox:latest":
 		st = llb.Image(imgName).
 			Run(llb.Shlex(`sh -c '[ -z "${MY_SECRET}" ]'`), llb.AddSecret("MY_SECRET", llb.SecretAsEnv(true), llb.SecretOptional))
@@ -1849,6 +1849,7 @@ func testSecretEnv(t *testing.T, sb integration.Sandbox) {
 	_, err = c.Solve(sb.Context(), def, SolveOpt{}, nil)
 	require.NoError(t, err)
 
+	// Test 3: Required secret not provided should error
 	switch imgName {
 	case "nanoserver:latest":
 		st = llb.Image(imgName).
@@ -1866,16 +1867,20 @@ func testSecretEnv(t *testing.T, sb integration.Sandbox) {
 	}, nil)
 	require.Error(t, err)
 
+	// Test 4: Multiple secrets with custom IDs
 	switch imgName {
 	case "nanoserver:latest":
 		st = llb.Image(imgName).
-			Run(llb.Shlex(`cmd /C "if defined MYPASSWORD (echo 1) else (echo 0) && if defined MYTOKEN (echo 1) else (echo 0)`),
+			Run(llb.Shlex(`cmd /C "if "%MYPASSWORD%-%MYTOKEN%"=="pw-token" (exit 0) else (exit 1)"`),
 				llb.AddSecret("MYPASSWORD", llb.SecretID("pass"), llb.SecretAsEnv(true)),
 				llb.AddSecret("MYTOKEN", llb.SecretAsEnv(true)),
 			)
 	case "busybox:latest":
 		st = llb.Image(imgName).
-			Run(llb.Shlex(`echo foo`), llb.AddSecret("MY_SECRET", llb.SecretAsEnv(true)))
+			Run(llb.Shlex(`sh -c '[ "$(echo ${MYPASSWORD}-${MYTOKEN})" = "pw-token" ]' `),
+				llb.AddSecret("MYPASSWORD", llb.SecretID("pass"), llb.SecretAsEnv(true)),
+				llb.AddSecret("MYTOKEN", llb.SecretAsEnv(true)),
+			)
 	}
 
 	def, err = st.Marshal(sb.Context())
@@ -1887,7 +1892,9 @@ func testSecretEnv(t *testing.T, sb integration.Sandbox) {
 			"MYTOKEN": []byte("token"),
 		})},
 	}, nil)
+	fmt.Printf("Full Error: %v\n", err)
 	require.NoError(t, err)
+	fmt.Print("Completed Successfully\n")
 }
 
 func testTmpfsMounts(t *testing.T, sb integration.Sandbox) {
