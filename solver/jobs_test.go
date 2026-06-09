@@ -31,31 +31,48 @@ func TestJobsIntegration(t *testing.T) {
 	)
 }
 
+// testParallelism verifies that two independent builds can run concurrently by
+// using a shared cache mount for signaling. Each build creates a signal file and
+// polls for the other's signal. With unlimited parallelism both finish under 10s;
+// with single parallelism they run sequentially and exceed 10s.
 func testParallelism(t *testing.T, sb integration.Sandbox) {
-	integration.SkipOnPlatform(t, "windows")
 	ctx := sb.Context()
 
 	c, err := client.New(ctx, sb.Address())
 	require.NoError(t, err)
 	defer c.Close()
 
+	imgName := integration.UnixOrWindows("busybox:latest", "nanoserver:latest")
+	cacheMountSrc := integration.UnixOrWindows(llb.Scratch(), llb.Image(imgName))
 	cacheMount := llb.AddMount(
-		"/shared", llb.Scratch(),
+		"/shared", cacheMountSrc,
 		llb.AsPersistentCacheDir("shared", llb.CacheMountShared))
-	run1 := llb.Image("busybox:latest").Run(
-		llb.Args([]string{
-			"/bin/sh", "-c",
-			"touch /shared/signal1 && i=0; while [ ! -f /shared/signal2 ] && [ $i -lt 10 ]; do i=$((i+1)); sleep 1; done",
-		}),
+
+	// On Linux, use sh to touch a signal file and poll for the peer's signal.
+	// On Windows (nanoserver), use cmd with copy+ping to achieve the same
+	// signaling: "copy nul" creates an empty file, and "ping -n 2 127.0.0.1"
+	// provides a ~1-second delay per iteration.
+	cmd1 := integration.UnixOrWindows(
+		[]string{"/bin/sh", "-c",
+			"touch /shared/signal1 && i=0; while [ ! -f /shared/signal2 ] && [ $i -lt 10 ]; do i=$((i+1)); sleep 1; done"},
+		[]string{"cmd", "/S", "/C",
+			`copy nul C:\shared\signal1 >nul & for /L %i in (1,1,10) do @if not exist C:\shared\signal2 ping -n 2 127.0.0.1 >nul`},
+	)
+	run1 := llb.Image(imgName).Run(
+		llb.Args(cmd1),
 		cacheMount,
 	).Root()
 	d1, err := run1.Marshal(ctx)
 	require.NoError(t, err)
-	run2 := llb.Image("busybox:latest").Run(
-		llb.Args([]string{
-			"/bin/sh", "-c",
-			"touch /shared/signal2 && i=0; while [ ! -f /shared/signal1 ] && [ $i -lt 10 ]; do i=$((i+1)); sleep 1; done",
-		}),
+
+	cmd2 := integration.UnixOrWindows(
+		[]string{"/bin/sh", "-c",
+			"touch /shared/signal2 && i=0; while [ ! -f /shared/signal1 ] && [ $i -lt 10 ]; do i=$((i+1)); sleep 1; done"},
+		[]string{"cmd", "/S", "/C",
+			`copy nul C:\shared\signal2 >nul & for /L %i in (1,1,10) do @if not exist C:\shared\signal1 ping -n 2 127.0.0.1 >nul`},
+	)
+	run2 := llb.Image(imgName).Run(
+		llb.Args(cmd2),
 		cacheMount,
 	).Root()
 	d2, err := run2.Marshal(ctx)
