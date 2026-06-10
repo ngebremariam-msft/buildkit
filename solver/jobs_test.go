@@ -19,7 +19,8 @@ func init() {
 }
 
 func TestJobsIntegration(t *testing.T) {
-	mirrors := integration.WithMirroredImages(integration.OfficialImages("busybox:latest"))
+	imgName := integration.UnixOrWindows("busybox:latest", "nanoserver:latest")
+	mirrors := integration.WithMirroredImages(integration.OfficialImages(imgName))
 	integration.Run(t, integration.TestFuncs(
 		testParallelism,
 	),
